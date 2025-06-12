@@ -1,28 +1,40 @@
 // src/handlers/drive-handler.ts
 
-import { drive_v3, google } from 'googleapis';
+import { google, drive_v3 } from 'googleapis'; // Ensure 'google' is explicitly available
 import { OAuth2Client } from 'google-auth-library';
 // import { ListFilesParams, DriveFile } from '../types/drive-types'; // Example import
 
-// Placeholder for actual OAuth2 client initialization
-// This would typically be initialized in index.ts or a dedicated auth module
-let authClient: OAuth2Client;
-
-export function initializeDriveHandler(client: OAuth2Client) {
-    authClient = client;
-    // Potentially initialize other things or validate client
-    console.log("DriveHandler initialized with auth client.");
-}
-
-
 export class DriveHandler {
+    private auth: OAuth2Client;
     private drive: drive_v3.Drive;
 
-    constructor(auth: OAuth2Client) {
-        if (!auth) {
-            throw new Error("DriveHandler requires an authenticated OAuth2Client.");
+    constructor() {
+        // process.env variables might not be immediately available at construction time
+        // if dotenv.config() hasn't run yet globally.
+        // However, the issue implies direct use here.
+        this.initialize();
+    }
+
+    private initialize() { // Changed to synchronous
+        if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET || !process.env.GOOGLE_REDIRECT_URI || !process.env.GOOGLE_REFRESH_TOKEN) {
+            // Log an error or throw, depending on how critical this is at startup.
+            // Throwing an error is safer to prevent the app from running with invalid config.
+            throw new Error("Missing Google OAuth2 environment variables for DriveHandler initialization. Ensure GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI, and GOOGLE_REFRESH_TOKEN are set.");
         }
-        this.drive = google.drive({ version: 'v3', auth });
+
+        this.auth = new google.auth.OAuth2(
+            process.env.GOOGLE_CLIENT_ID,
+            process.env.GOOGLE_CLIENT_SECRET,
+            process.env.GOOGLE_REDIRECT_URI
+        );
+
+        this.auth.setCredentials({
+            refresh_token: process.env.GOOGLE_REFRESH_TOKEN
+        });
+
+        // The drive instance is created, token refresh will be attempted by the library on first API call.
+        this.drive = google.drive({ version: 'v3', auth: this.auth });
+        console.log("DriveHandler initialized with OAuth2 client. Token will be refreshed on first API call if needed.");
     }
 
     private formatMCPResponse(data: any) {
@@ -77,13 +89,16 @@ export class DriveHandler {
 // Export an instance or a way to get an instance
 // Depending on how auth is managed, this might change.
 // For now, assuming authClient is set by initializeDriveHandler
-export const getDriveHandler = () => {
-    if (!authClient) {
-        // This is a fallback, ideally authClient is always initialized before getDriveHandler is called.
-        // Or, the constructor of DriveHandler itself should handle auth initialization if appropriate.
-        console.warn("Auth client not initialized for DriveHandler. Operations may fail.");
-        // Depending on strictness, you might throw an error here or attempt a default/guest client.
-        // For this example, we'll proceed, but real usage would need robust auth handling.
-    }
-    return new DriveHandler(authClient);
-};
+// export const getDriveHandler = () => { // This function is no longer needed
+//     if (!authClient) {
+//         // This is a fallback, ideally authClient is always initialized before getDriveHandler is called.
+//         // Or, the constructor of DriveHandler itself should handle auth initialization if appropriate.
+//         console.warn("Auth client not initialized for DriveHandler. Operations may fail.");
+//         // Depending on strictness, you might throw an error here or attempt a default/guest client.
+//         // For this example, we'll proceed, but real usage would need robust auth handling.
+//     }
+//     return new DriveHandler(authClient); // Old constructor usage
+// };
+// Note: The old getDriveHandler and initializeDriveHandler functions,
+// and the module-level authClient variable have been removed.
+// DriveHandler is now self-contained for auth initialization.
