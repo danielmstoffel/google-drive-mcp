@@ -125,7 +125,7 @@ class GoogleDriveHandler { // Renamed class
     });
   }
 
-  async permissions_list(args: DrivePermissionsListArgs): Promise<MCPResponse<DrivePermissionListResponseData>> {
+  async drive_permissions_list(args: DrivePermissionsListArgs): Promise<MCPResponse<DrivePermissionListResponseData>> {
     try {
       const response = await this.drive.permissions.list({
         fileId: args.fileId,
@@ -141,7 +141,7 @@ class GoogleDriveHandler { // Renamed class
     }
   }
 
-  async permissions_get(args: DrivePermissionsGetArgs): Promise<MCPResponse<DrivePermission>> {
+  async drive_permissions_get(args: DrivePermissionsGetArgs): Promise<MCPResponse<DrivePermission>> {
     try {
       const response = await this.drive.permissions.get({
         fileId: args.fileId,
@@ -155,7 +155,7 @@ class GoogleDriveHandler { // Renamed class
     }
   }
 
-  async permissions_update(args: DrivePermissionsUpdateArgs): Promise<MCPResponse<DrivePermission>> {
+  async drive_permissions_update(args: DrivePermissionsUpdateArgs): Promise<MCPResponse<DrivePermission>> {
     try {
       const requestBody: DrivePermissionsUpdateRequestBody = { role: args.role };
       const response = await this.drive.permissions.update({
@@ -173,7 +173,7 @@ class GoogleDriveHandler { // Renamed class
     }
   }
 
-  async permissions_create(args: DrivePermissionsCreateArgs): Promise<MCPResponse<DrivePermission>> {
+  async drive_permissions_create(args: DrivePermissionsCreateArgs): Promise<MCPResponse<DrivePermission>> {
     try {
       const requestBody: DrivePermissionsCreateRequestBody = {
         type: args.type,
@@ -198,7 +198,7 @@ class GoogleDriveHandler { // Renamed class
     }
   }
 
-  async permissions_delete(args: DrivePermissionsDeleteArgs): Promise<MCPResponse<DrivePermissionDeleteSuccessData>> {
+  async drive_permissions_delete(args: DrivePermissionsDeleteArgs): Promise<MCPResponse<DrivePermissionDeleteSuccessData>> {
     try {
       const deleteParams: Partial<drive_v3.Params$Resource$Permissions$Delete> = {
         fileId: args.fileId,
@@ -226,7 +226,7 @@ async function main() {
     await googleDriveHandler.listFiles();
 
     const listArgs: DrivePermissionsListArgs = { fileId: "some-file-id-from-listFiles" }; // Replace with actual ID
-    const permissionsResponse = await googleDriveHandler.permissions_list(listArgs);
+    const permissionsResponse = await googleDriveHandler.drive_permissions_list(listArgs);
 
     if (permissionsResponse.success && permissionsResponse.data) {
       console.log('Permissions List:', JSON.stringify(permissionsResponse.data.permissions, null, 2));
@@ -234,16 +234,16 @@ async function main() {
         const firstPermissionId = permissionsResponse.data.permissions[0].id;
 
         const getArgs: DrivePermissionsGetArgs = { fileId: listArgs.fileId, permissionId: firstPermissionId};
-        const permissionDetails = await googleDriveHandler.permissions_get(getArgs);
+        const permissionDetails = await googleDriveHandler.drive_permissions_get(getArgs);
         console.log('Permission Get:', JSON.stringify(permissionDetails, null, 2));
 
         const updateArgs: DrivePermissionsUpdateArgs = { fileId: listArgs.fileId, permissionId: firstPermissionId, role: 'commenter'};
-        const updatedPermission = await googleDriveHandler.permissions_update(updateArgs);
+        const updatedPermission = await googleDriveHandler.drive_permissions_update(updateArgs);
         console.log('Permission Update:', JSON.stringify(updatedPermission, null, 2));
 
         /*
         const deleteArgs: DrivePermissionsDeleteArgs = { fileId: listArgs.fileId, permissionId: firstPermissionId};
-        const deleteStatus = await googleDriveHandler.permissions_delete(deleteArgs);
+        const deleteStatus = await googleDriveHandler.drive_permissions_delete(deleteArgs);
         console.log('Permission Delete Status:', JSON.stringify(deleteStatus, null, 2));
         */
       }
@@ -258,7 +258,7 @@ async function main() {
         emailAddress: 'testuser@example.com',
         sendNotificationEmail: false
     };
-    const createdPermission = await googleDriveHandler.permissions_create(createArgs);
+    const createdPermission = await googleDriveHandler.drive_permissions_create(createArgs);
     console.log('Permission Create:', JSON.stringify(createdPermission, null, 2));
     if (createdPermission.success && createdPermission.data) {
         const newPermissionId = createdPermission.data.id;

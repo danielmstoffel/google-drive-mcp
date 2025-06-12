@@ -77,22 +77,22 @@ This project provides a TypeScript-based command-line client for interacting wit
 
 The `GoogleDriveHandler` class in `src/handlers/drive-handler.ts` provides the following methods for managing permissions:
 
-*   **`permissions_list(args: DrivePermissionsListArgs)`**
+*   **`drive_permissions_list(args: DrivePermissionsListArgs)`**
     *   Lists all permissions for a specified file or folder.
-*   **`permissions_get(args: DrivePermissionsGetArgs)`**
+*   **`drive_permissions_get(args: DrivePermissionsGetArgs)`**
     *   Retrieves the details of a specific permission by its ID for a file or folder.
-*   **`permissions_create(args: DrivePermissionsCreateArgs)`**
+*   **`drive_permissions_create(args: DrivePermissionsCreateArgs)`**
     *   Creates a new permission for a user, group, domain, or anyone on a file or folder.
-*   **`permissions_update(args: DrivePermissionsUpdateArgs)`**
+*   **`drive_permissions_update(args: DrivePermissionsUpdateArgs)`**
     *   Updates an existing permission's role (e.g., from 'reader' to 'writer').
-*   **`permissions_delete(args: DrivePermissionsDeleteArgs)`**
+*   **`drive_permissions_delete(args: DrivePermissionsDeleteArgs)`**
     *   Deletes a permission from a file or folder.
 
 Please refer to the JSDoc comments and TypeScript interfaces (primarily in `src/types/drive-types.ts`) for detailed argument and response structures.
 
 ## Error Handling
 
-All the permission methods (e.g., `permissions_list`) return a Promise that resolves to an `MCPResponse<T>` object. This object has the following structure:
+All the `drive_permissions_*` methods return a Promise that resolves to an `MCPResponse<T>` object. This object has the following structure:
 
 ```typescript
 interface MCPResponse<T> {
