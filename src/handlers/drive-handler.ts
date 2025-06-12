@@ -1,9 +1,12 @@
 import { google } from 'googleapis';
 import { OAuth2Client } from 'google-auth-library';
 import {
+  DriveChangesGetStartPageTokenArgs, DriveChangesListArgs, DriveChangesWatchArgs,
+  DriveAboutGetArgs,
   DriveCommentsCreateArgs, DriveCommentsDeleteArgs, DriveCommentsGetArgs, DriveCommentsListArgs, DriveCommentsUpdateArgs,
   DriveRepliesCreateArgs, DriveRepliesDeleteArgs, DriveRepliesGetArgs, DriveRepliesListArgs, DriveRepliesUpdateArgs,
-  DriveRevisionsDeleteArgs, DriveRevisionsGetArgs, DriveRevisionsListArgs, DriveRevisionsUpdateArgs
+  DriveRevisionsDeleteArgs, DriveRevisionsGetArgs, DriveRevisionsListArgs, DriveRevisionsUpdateArgs,
+  DriveAppsListArgs, DriveAppsGetArgs
 } from '../types/drive-types';
 
 export class GoogleDriveHandler {
@@ -25,165 +28,127 @@ export class GoogleDriveHandler {
   }
 
   private formatMCPResponse(data: any) {
-    // If data contains an error property, success should be false.
-    if (data && data.error) {
-      return {
-        success: false,
-        ...data
-      };
-    }
     return {
       success: true,
       ...data
     };
   }
 
-  async drive_changes_getStartPageToken(args?: { supportsAllDrives?: boolean; includeItemsFromAllDrives?: boolean }) {
+  private handleError(error: any): never { // 'never' indicates this function always throws
+    console.error('GoogleDriveHandler Error:', error); // Log the original error for server-side debugging
+
+    let errorMessage = 'An unknown Google Drive API error occurred.';
+    let statusCode = 500;
+
+    if (error.response && error.response.data && error.response.data.error) {
+      // Error from Google API response
+      errorMessage = error.response.data.error.message || errorMessage;
+      if (error.response.data.error.code) {
+        statusCode = error.response.data.error.code;
+      }
+    } else if (error.message) {
+      // Generic JavaScript error
+      errorMessage = error.message;
+    }
+
+    // Construct a new error object to throw
+    const customError: any = new Error(errorMessage);
+    customError.statusCode = statusCode; // Attach statusCode if available
+    customError.originalError = error; // Attach original error for more context if needed
+    throw customError;
+  }
+
+  async drive_changes_getStartPageToken(args: DriveChangesGetStartPageTokenArgs) {
     try {
       const response = await this.drive.changes.getStartPageToken({
-        supportsAllDrives: args?.supportsAllDrives,
-        includeItemsFromAllDrives: args?.includeItemsFromAllDrives,
+        supportsAllDrives: args.supportsAllDrives,
+        includeItemsFromAllDrives: args.includeItemsFromAllDrives,
       });
-      return this.formatMCPResponse({ startPageToken: response.data.startPageToken });
+      // Assuming DriveStartPageToken is a defined type for the response data
+      return this.formatMCPResponse(response.data as any);
     } catch (error: any) {
-      return this.formatMCPResponse({ error: error.message || 'An unknown error occurred' });
+      this.handleError(error);
     }
   }
 
-  async drive_revisions_delete(args: DriveRevisionsDeleteArgs) {
+  async drive_apps_list(args: DriveAppsListArgs) { // Optional args based on Google API
     try {
-      await this.drive.revisions.delete({
-        fileId: args.fileId,
-        revisionId: args.revisionId,
-      });
-      return this.formatMCPResponse({ message: 'Revision deleted successfully' });
-    } catch (error: any) {
-      return this.formatMCPResponse({ error: error.message || 'Failed to delete revision' });
-    }
-  }
-
-  async drive_revisions_get(args: DriveRevisionsGetArgs) {
-    try {
-      const response = await this.drive.revisions.get({
-        fileId: args.fileId,
-        revisionId: args.revisionId,
-        fields: args.fields || '*',
-      });
-      return this.formatMCPResponse({ revision: response.data });
-    } catch (error: any) {
-      return this.formatMCPResponse({ error: error.message || 'Failed to get revision' });
-    }
-  }
-
-  async drive_revisions_list(args: DriveRevisionsListArgs) {
-    try {
-      const response = await this.drive.revisions.list({
-        fileId: args.fileId,
-        pageSize: args.pageSize,
-        pageToken: args.pageToken,
-        fields: args.fields || 'revisions,nextPageToken',
+      const response = await this.drive.apps.list({
+        languageCode: args?.languageCode,
+        appFilterExtensions: args?.appFilterExtensions,
+        appFilterMimeTypes: args?.appFilterMimeTypes,
+        fields: args?.fields || 'items(*),defaultAppIds', // Example default fields
       });
       return this.formatMCPResponse({
-        revisions: response.data.revisions,
-        nextPageToken: response.data.nextPageToken,
+        items: response.data.items || [],
+        defaultAppIds: response.data.defaultAppIds || [],
       });
     } catch (error: any) {
-      return this.formatMCPResponse({ error: error.message || 'Failed to list revisions' });
+      this.handleError(error);
     }
   }
 
-  async drive_revisions_update(args: DriveRevisionsUpdateArgs) {
+  async drive_apps_get(args: DriveAppsGetArgs) {
     try {
-      const { fileId, revisionId, fields, ...requestBody } = args;
-      const response = await this.drive.revisions.update({
-        fileId,
-        revisionId,
-        requestBody,
-        fields: fields || '*',
-      });
-      return this.formatMCPResponse({ revision: response.data });
-    } catch (error: any) {
-      return this.formatMCPResponse({ error: error.message || 'Failed to update revision' });
-    }
-  }
-
-  async drive_replies_create(args: DriveRepliesCreateArgs) {
-    try {
-      const response = await this.drive.replies.create({
-        fileId: args.fileId,
-        commentId: args.commentId,
-        requestBody: {
-          content: args.content,
-        },
+      const response = await this.drive.apps.get({
+        appId: args.appId,
         fields: args.fields || '*',
       });
-      return this.formatMCPResponse({ reply: response.data });
+      return this.formatMCPResponse({ app: response.data });
     } catch (error: any) {
-      return this.formatMCPResponse({ error: error.message || 'Failed to create reply' });
+      this.handleError(error);
     }
   }
 
-  async drive_replies_delete(args: DriveRepliesDeleteArgs) {
+  async drive_changes_list(args: DriveChangesListArgs) {
     try {
-      await this.drive.replies.delete({
-        fileId: args.fileId,
-        commentId: args.commentId,
-        replyId: args.replyId,
-      });
-      return this.formatMCPResponse({ message: 'Reply deleted successfully' });
-    } catch (error: any) {
-      return this.formatMCPResponse({ error: error.message || 'Failed to delete reply' });
-    }
-  }
-
-  async drive_replies_get(args: DriveRepliesGetArgs) {
-    try {
-      const response = await this.drive.replies.get({
-        fileId: args.fileId,
-        commentId: args.commentId,
-        replyId: args.replyId,
-        includeDeleted: args.includeDeleted,
-        fields: args.fields || '*',
-      });
-      return this.formatMCPResponse({ reply: response.data });
-    } catch (error: any) {
-      return this.formatMCPResponse({ error: error.message || 'Failed to get reply' });
-    }
-  }
-
-  async drive_replies_list(args: DriveRepliesListArgs) {
-    try {
-      const response = await this.drive.replies.list({
-        fileId: args.fileId,
-        commentId: args.commentId,
-        pageSize: args.pageSize,
+      const response = await this.drive.changes.list({
         pageToken: args.pageToken,
-        includeDeleted: args.includeDeleted,
-        fields: args.fields || 'replies,nextPageToken',
+        pageSize: args.pageSize,
+        restrictToMyDrive: args.restrictToMyDrive,
+        spaces: args.spaces,
+        supportsAllDrives: args.supportsAllDrives,
+        includeItemsFromAllDrives: args.includeItemsFromAllDrives,
+        includeCorpusRemovals: args.includeCorpusRemovals,
+        includeRemoved: args.includeRemoved === undefined ? true : args.includeRemoved,
+        fields: args.fields || 'changes(*),nextPageToken,newStartPageToken',
       });
       return this.formatMCPResponse({
-        replies: response.data.replies,
+        changes: response.data.changes || [],
+        newStartPageToken: response.data.newStartPageToken,
         nextPageToken: response.data.nextPageToken,
-      });
+        kind: response.data.kind,
+      } as any); // Cast to any to match DriveChangeList if it includes 'kind'
     } catch (error: any) {
-      return this.formatMCPResponse({ error: error.message || 'Failed to list replies' });
+      this.handleError(error);
     }
   }
 
-  async drive_replies_update(args: DriveRepliesUpdateArgs) {
+  async drive_changes_watch(args: DriveChangesWatchArgs) {
     try {
-      const response = await this.drive.replies.update({
-        fileId: args.fileId,
-        commentId: args.commentId,
-        replyId: args.replyId,
-        requestBody: {
-          content: args.content,
-        },
-        fields: args.fields || '*',
+      if (!args.requestBody) {
+        throw new Error("requestBody is required for drive_changes_watch");
+      }
+      const response = await this.drive.changes.watch({
+        pageToken: args.pageToken,
+        requestBody: args.requestBody,
+        supportsAllDrives: args.supportsAllDrives,
+        includeItemsFromAllDrives: args.includeItemsFromAllDrives,
       });
-      return this.formatMCPResponse({ reply: response.data });
+      return this.formatMCPResponse(response.data as any); // Assuming DriveChannel for response.data
     } catch (error: any) {
-      return this.formatMCPResponse({ error: error.message || 'Failed to update reply' });
+      this.handleError(error);
+    }
+  }
+
+  async drive_about_get(args: DriveAboutGetArgs) {
+    try {
+      const response = await this.drive.about.get({
+        fields: args.fields || 'user,storageQuota,maxImportSizes,maxUploadSize,appInstalled,folderColorPalette'
+      });
+      return this.formatMCPResponse(response.data as any); // Assuming DriveAbout for response.data
+    } catch (error: any) {
+      this.handleError(error);
     }
   }
 
@@ -200,7 +165,7 @@ export class GoogleDriveHandler {
       });
       return this.formatMCPResponse({ comment: response.data });
     } catch (error: any) {
-      return this.formatMCPResponse({ error: error.message || 'Failed to create comment' });
+      this.handleError(error);
     }
   }
 
@@ -213,7 +178,7 @@ export class GoogleDriveHandler {
       // Delete operation does not return content, so we return a success message or an empty object.
       return this.formatMCPResponse({ message: 'Comment deleted successfully' });
     } catch (error: any) {
-      return this.formatMCPResponse({ error: error.message || 'Failed to delete comment' });
+      this.handleError(error);
     }
   }
 
@@ -227,7 +192,7 @@ export class GoogleDriveHandler {
       });
       return this.formatMCPResponse({ comment: response.data });
     } catch (error: any) {
-      return this.formatMCPResponse({ error: error.message || 'Failed to get comment' });
+      this.handleError(error);
     }
   }
 
@@ -239,14 +204,15 @@ export class GoogleDriveHandler {
         pageToken: args.pageToken,
         startModifiedTime: args.startModifiedTime,
         includeDeleted: args.includeDeleted,
-        fields: args.fields || 'comments,nextPageToken', // Standard fields for a list
+        fields: args.fields || 'comments(*),nextPageToken', // Updated fields
       });
       return this.formatMCPResponse({
-        comments: response.data.comments,
+        comments: response.data.comments || [], // Handle cases where comments might be undefined
         nextPageToken: response.data.nextPageToken,
-      });
+        kind: response.data.kind,
+      } as any);
     } catch (error: any) {
-      return this.formatMCPResponse({ error: error.message || 'Failed to list comments' });
+      this.handleError(error);
     }
   }
 
@@ -264,84 +230,146 @@ export class GoogleDriveHandler {
       });
       return this.formatMCPResponse({ comment: response.data });
     } catch (error: any) {
-      return this.formatMCPResponse({ error: error.message || 'Failed to update comment' });
+      this.handleError(error);
     }
   }
 
-  async drive_about_get(args?: { fields?: string }) {
+  async drive_replies_create(args: DriveRepliesCreateArgs) {
     try {
-      const response = await this.drive.about.get({
-        fields: args?.fields || 'user,storageQuota,maxImportSizes,maxUploadSize,appInstalled,folderColorPalette'
+      const response = await this.drive.replies.create({
+        fileId: args.fileId,
+        commentId: args.commentId,
+        requestBody: {
+          content: args.content,
+        },
+        fields: args.fields || '*',
       });
-      return this.formatMCPResponse({ about: response.data });
+      return this.formatMCPResponse({ reply: response.data });
     } catch (error: any) {
-      return this.formatMCPResponse({ error: error.message || 'An unknown error occurred' });
+      this.handleError(error);
     }
   }
 
-  async drive_changes_list(args: {
-    pageToken: string;
-    pageSize?: number;
-    restrictToMyDrive?: boolean;
-    spaces?: string;
-    supportsAllDrives?: boolean;
-    includeItemsFromAllDrives?: boolean;
-    includeCorpusRemovals?: boolean; // As per Google API docs, though not in original issue
-    includeRemoved?: boolean; // As per Google API docs, default true
-    fields?: string; // To fetch specific fields
-  }) {
+  async drive_replies_delete(args: DriveRepliesDeleteArgs) {
     try {
-      const response = await this.drive.changes.list({
-        pageToken: args.pageToken,
+      await this.drive.replies.delete({
+        fileId: args.fileId,
+        commentId: args.commentId,
+        replyId: args.replyId,
+      });
+      return this.formatMCPResponse({ message: 'Reply deleted successfully' });
+    } catch (error: any) {
+      this.handleError(error);
+    }
+  }
+
+  async drive_replies_get(args: DriveRepliesGetArgs) {
+    try {
+      const response = await this.drive.replies.get({
+        fileId: args.fileId,
+        commentId: args.commentId,
+        replyId: args.replyId,
+        includeDeleted: args.includeDeleted,
+        fields: args.fields || '*',
+      });
+      return this.formatMCPResponse({ reply: response.data });
+    } catch (error: any) {
+      this.handleError(error);
+    }
+  }
+
+  async drive_replies_list(args: DriveRepliesListArgs) {
+    try {
+      const response = await this.drive.replies.list({
+        fileId: args.fileId,
+        commentId: args.commentId,
         pageSize: args.pageSize,
-        restrictToMyDrive: args.restrictToMyDrive,
-        spaces: args.spaces,
-        supportsAllDrives: args.supportsAllDrives,
-        includeItemsFromAllDrives: args.includeItemsFromAllDrives,
-        includeCorpusRemovals: args.includeCorpusRemovals,
-        includeRemoved: args.includeRemoved === undefined ? true : args.includeRemoved,
-        fields: args.fields || '*', // Default to all fields if not specified
+        pageToken: args.pageToken,
+        includeDeleted: args.includeDeleted,
+        fields: args.fields || 'replies(*),nextPageToken',
       });
       return this.formatMCPResponse({
-        changes: response.data.changes,
+        replies: response.data.replies || [],
         nextPageToken: response.data.nextPageToken,
-        newStartPageToken: response.data.newStartPageToken,
-      });
+        kind: response.data.kind,
+      } as any);
     } catch (error: any) {
-      return this.formatMCPResponse({ error: error.message || 'An unknown error occurred' });
+      this.handleError(error);
     }
   }
 
-  async drive_changes_watch(args: {
-    pageToken: string;
-    requestBody: { // Based on googleapis Drive v3 types
-      id: string; // A UUID or similar unique string that identifies this channel.
-      type: string; // The type of delivery mechanism used for this channel. (e.g., "web_hook")
-      address: string; // The address where notifications are to be delivered.
-      token?: string; // An arbitrary string delivered to the target address with each notification delivered over this channel. Optional.
-      expiration?: string; // Date and time of notification channel expiration, expressed as a Unix timestamp, in milliseconds. Optional.
-      params?: { [key: string]: string }; // Additional parameters controlling delivery channel behavior. Optional.
-      payload?: boolean; // A Boolean value to indicate whether payload is wanted. Optional.
-      resourceId?: string; // An opaque ID that identifies the resource being watched on this channel. Stable across different API versions.
-      resourceUri?: string; // A version-specific identifier for the watched resource.
-    };
-    supportsAllDrives?: boolean;
-    includeItemsFromAllDrives?: boolean;
-  }) {
+  async drive_replies_update(args: DriveRepliesUpdateArgs) {
     try {
-      // Ensure requestBody is not undefined
-      if (!args.requestBody) {
-        throw new Error("requestBody is required for drive_changes_watch");
-      }
-      const response = await this.drive.changes.watch({
-        pageToken: args.pageToken,
-        requestBody: args.requestBody,
-        supportsAllDrives: args.supportsAllDrives,
-        includeItemsFromAllDrives: args.includeItemsFromAllDrives,
+      const response = await this.drive.replies.update({
+        fileId: args.fileId,
+        commentId: args.commentId,
+        replyId: args.replyId,
+        requestBody: {
+          content: args.content,
+        },
+        fields: args.fields || '*',
       });
-      return this.formatMCPResponse({ channel: response.data });
+      return this.formatMCPResponse({ reply: response.data });
     } catch (error: any) {
-      return this.formatMCPResponse({ error: error.message || 'An unknown error occurred' });
+      this.handleError(error);
+    }
+  }
+
+  async drive_revisions_delete(args: DriveRevisionsDeleteArgs) {
+    try {
+      await this.drive.revisions.delete({
+        fileId: args.fileId,
+        revisionId: args.revisionId,
+      });
+      return this.formatMCPResponse({ message: 'Revision deleted successfully' });
+    } catch (error: any) {
+      this.handleError(error);
+    }
+  }
+
+  async drive_revisions_get(args: DriveRevisionsGetArgs) {
+    try {
+      const response = await this.drive.revisions.get({
+        fileId: args.fileId,
+        revisionId: args.revisionId,
+        fields: args.fields || '*',
+      });
+      return this.formatMCPResponse({ revision: response.data });
+    } catch (error: any) {
+      this.handleError(error);
+    }
+  }
+
+  async drive_revisions_list(args: DriveRevisionsListArgs) {
+    try {
+      const response = await this.drive.revisions.list({
+        fileId: args.fileId,
+        pageSize: args.pageSize,
+        pageToken: args.pageToken,
+        fields: args.fields || 'revisions(*),nextPageToken',
+      });
+      return this.formatMCPResponse({
+        revisions: response.data.revisions || [],
+        nextPageToken: response.data.nextPageToken,
+        kind: response.data.kind,
+      } as any);
+    } catch (error: any) {
+      this.handleError(error);
+    }
+  }
+
+  async drive_revisions_update(args: DriveRevisionsUpdateArgs) {
+    try {
+      const { fileId, revisionId, fields, ...requestBody } = args;
+      const response = await this.drive.revisions.update({
+        fileId,
+        revisionId,
+        requestBody,
+        fields: fields || '*',
+      });
+      return this.formatMCPResponse({ revision: response.data });
+    } catch (error: any) {
+      this.handleError(error);
     }
   }
 
