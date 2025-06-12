@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    "module": "commonjs",
+    "esModuleInterop": true,
+    "target": "ES2020", // Targeting a version that definitely supports fs/promises
+    "lib": ["ES2020", "DOM"], // Explicitly including libraries
+    "moduleResolution": "node",
+    "sourceMap": true,
+    "outDir": "dist",
+    "strict": true,
+    "resolveJsonModule": true, // Added for completeness, though not directly for these errors
+    "allowSyntheticDefaultImports": true // Already implied by esModuleInterop, but explicit
+  },
+  "include": ["**/*.ts"],
+  "exclude": ["node_modules"]
+}

@@ -1,0 +1,13 @@
+{
+  "dependencies": {
+    "@google-cloud/local-auth": "^2.1.0",
+    "googleapis": "^105.0.0"
+  },
+  "devDependencies": {
+    "@types/gapi": "^0.0.47",
+    "@types/google-one-tap": "^1.2.6",
+    "@types/node": "^24.0.1",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.8.3"
+  }
+}
