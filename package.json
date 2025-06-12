@@ -1,15 +1,29 @@
 {
   "name": "@danielmstoffel/google-drive-mcp",
-  "version": "1.0.0",
+  "version": "0.0.1",
   "description": "Google Drive MCP server for Claude Desktop",
   "main": "dist/index.js",
-  "files": ["dist", "README.md"],
-  "keywords": ["mcp", "claude", "google-drive", "ai"],
   "scripts": {
     "build": "tsc",
-    "test": "jest",
-    "verify-tools": "node scripts/verify-tools.js",
-    "check-implementation": "node scripts/check-implementation.js",
-    "validate-config": "node scripts/validate-config.js"
+    "start": "node dist/index.js",
+    "dev": "tsc && node dist/index.js",
+    "test": "jest"
+  },
+  "keywords": ["mcp", "google-drive", "claude"],
+  "author": "Daniel Stoffel",
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "latest",
+    "dotenv": "^16.4.5",
+    "google-auth-library": "^9.7.0",
+    "googleapis": "^134.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "typescript": "^5.3.3",
+    "ts-node": "^10.9.2",
+    "@types/jest": "^29.5.12",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.1.2"
   }
 }
