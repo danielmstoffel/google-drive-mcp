@@ -1,0 +1,24 @@
+{
+  "mcpServers": {
+    "google-drive-personal": {
+      "command": "node",
+      "args": ["/path/to/google-drive-mcp/dist/index.js"],
+      "env": {
+        "GOOGLE_CLIENT_ID": "your-personal-client-id",
+        "GOOGLE_CLIENT_SECRET": "your-personal-client-secret",
+        "GOOGLE_REDIRECT_URI": "http://localhost:3000/oauth2callback",
+        "GOOGLE_REFRESH_TOKEN": "your-personal-refresh-token"
+      }
+    },
+    "google-drive-work": {
+      "command": "node",
+      "args": ["/path/to/google-drive-mcp/dist/index.js"],
+      "env": {
+        "GOOGLE_CLIENT_ID": "your-work-client-id",
+        "GOOGLE_CLIENT_SECRET": "your-work-client-secret",
+        "GOOGLE_REDIRECT_URI": "http://localhost:3000/oauth2callback",
+        "GOOGLE_REFRESH_TOKEN": "your-work-refresh-token"
+      }
+    }
+  }
+}
