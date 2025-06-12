@@ -1,5 +1,7 @@
 # Google Drive Permissions API Client
 
+**Note:** This README provides specific instructions for the Google Drive Handler. Its content should ideally be integrated into the main project README at the repository root.
+
 This project provides a TypeScript-based command-line client for interacting with the Google Drive API, specifically focusing on managing file and folder permissions. It demonstrates how to authenticate using OAuth 2.0 and perform CRUD (Create, Read, Update, Delete) operations on permissions.
 
 ## Prerequisites
@@ -17,7 +19,7 @@ This project provides a TypeScript-based command-line client for interacting wit
     # git clone <repository_url>
     # cd <repository_name>
     ```
-    Alternatively, download the `google_drive_api.ts`, `tsconfig.json`, and `package.json` (if available, otherwise you'll create it via npm init) files into a directory.
+    Alternatively, download the `src/handlers/drive-handler.ts`, `tsconfig.json`, and `package.json` (if available, otherwise you'll create it via npm init) files into a directory.
 
 2.  **Install Dependencies:**
     Open your terminal in the project directory and run:
@@ -50,14 +52,16 @@ This project provides a TypeScript-based command-line client for interacting wit
         4.  **Important:** This file contains sensitive information. Keep it private and **do not commit it to version control.** The provided `.gitignore` file in this repository already includes `credentials.json` to help prevent accidental commits.
 
 4.  **TypeScript Configuration:**
-    *   A `tsconfig.json` file is included in this project. It provides the necessary TypeScript compiler options to transpile and run the `google_drive_api.ts` script.
+    *   A `tsconfig.json` file is included in this project. It provides the necessary TypeScript compiler options.
+    *   All custom type definitions (interfaces, type aliases) are located in `src/types/drive-types.ts`.
+    *   The main handler logic is in `src/handlers/drive-handler.ts`.
 
 ## Running the Code
 
 1.  **Execute the Script:**
     Open your terminal in the project's root directory and run:
     ```bash
-    npx ts-node google_drive_api.ts
+    npx ts-node src/handlers/drive-handler.ts
     ```
 
 2.  **OAuth 2.0 Authorization Flow:**
@@ -66,29 +70,29 @@ This project provides a TypeScript-based command-line client for interacting wit
     *   After successful authorization, a `token.json` file will be created in the root directory. This file stores your OAuth tokens, so you won't need to authorize again unless the token is revoked or expires, or if you change the `SCOPES`.
 
 3.  **Testing API Methods:**
-    *   The `main` function at the bottom of `google_drive_api.ts` contains example usage of the implemented API methods.
+    *   The `main` function at the bottom of `src/handlers/drive-handler.ts` contains example usage of the implemented API methods.
     *   Initially, most examples are commented out. You can uncomment and modify them to test different functionalities. For example, to list permissions, you'll first need a `fileId`. You can get a `fileId` by running the `listFiles()` method (which is enabled by default in `main`) and then using one of the IDs from its output.
 
 ## Implemented API Methods
 
-The `GoogleDriveAPI` class in `google_drive_api.ts` provides the following methods for managing permissions:
+The `GoogleDriveHandler` class in `src/handlers/drive-handler.ts` provides the following methods for managing permissions:
 
-*   **`drive_permissions_list(args: DrivePermissionsListArgs)`**
+*   **`permissions_list(args: DrivePermissionsListArgs)`**
     *   Lists all permissions for a specified file or folder.
-*   **`drive_permissions_get(args: DrivePermissionsGetArgs)`**
+*   **`permissions_get(args: DrivePermissionsGetArgs)`**
     *   Retrieves the details of a specific permission by its ID for a file or folder.
-*   **`drive_permissions_create(args: DrivePermissionsCreateArgs)`**
+*   **`permissions_create(args: DrivePermissionsCreateArgs)`**
     *   Creates a new permission for a user, group, domain, or anyone on a file or folder.
-*   **`drive_permissions_update(args: DrivePermissionsUpdateArgs)`**
+*   **`permissions_update(args: DrivePermissionsUpdateArgs)`**
     *   Updates an existing permission's role (e.g., from 'reader' to 'writer').
-*   **`drive_permissions_delete(args: DrivePermissionsDeleteArgs)`**
+*   **`permissions_delete(args: DrivePermissionsDeleteArgs)`**
     *   Deletes a permission from a file or folder.
 
-Please refer to the JSDoc comments and TypeScript interfaces within `google_drive_api.ts` for detailed argument and response structures.
+Please refer to the JSDoc comments and TypeScript interfaces (primarily in `src/types/drive-types.ts`) for detailed argument and response structures.
 
 ## Error Handling
 
-All the `drive_permissions_*` methods return a Promise that resolves to an `MCPResponse<T>` object. This object has the following structure:
+All the permission methods (e.g., `permissions_list`) return a Promise that resolves to an `MCPResponse<T>` object. This object has the following structure:
 
 ```typescript
 interface MCPResponse<T> {
