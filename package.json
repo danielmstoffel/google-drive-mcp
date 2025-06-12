@@ -1,0 +1,28 @@
+{
+  "name": "google-drive-mcp",
+  "version": "1.0.0",
+  "description": "Google Drive MCP Connector",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsc -w & nodemon dist/index.js"
+  },
+  "keywords": [
+    "mcp",
+    "google-drive"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@google-cloud/local-auth": "^3.0.0",
+    "@modelcontextprotocol/sdk": "latest",
+    "dotenv": "^16.0.3",
+    "googleapis": "^144.0.0",
+    "typescript": "^5.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.0",
+    "nodemon": "^3.0.0"
+  }
+}
