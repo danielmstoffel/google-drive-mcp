@@ -28,7 +28,7 @@ export class GoogleDriveHandler {
 
   // Shared Drives methods will go here
   // Example structure for drives_create:
-  async drive_drives_list(args: {
+  async drives_list(args: {
     pageSize?: number;
     pageToken?: string;
     q?: string;
@@ -36,10 +36,16 @@ export class GoogleDriveHandler {
   }) {
     try {
       const response = await this.drive.drives.list({
-        ...args,
-        fields: 'drives(id,name,colorRgb,backgroundImageFile,capabilities,createdTime)'
+        pageSize: args.pageSize || 10,
+        pageToken: args.pageToken,
+        q: args.q,
+        useDomainAdminAccess: args.useDomainAdminAccess,
+        fields: `nextPageToken, drives(id,name,themeId,colorRgb,backgroundImageFile,backgroundImageLink,capabilities,createdTime,hidden,restrictions)`
       });
-      return this.formatMCPResponse({ drives: response.data });
+      return this.formatMCPResponse({
+        drives: response.data.drives,
+        nextPageToken: response.data.nextPageToken
+      });
     } catch (error) {
       return this.formatMCPResponse({
         success: false,
@@ -48,7 +54,7 @@ export class GoogleDriveHandler {
     }
   }
 
-  async drive_drives_get(args: {
+  async drives_get(args: {
     driveId: string;
     useDomainAdminAccess?: boolean;
   }) {
@@ -56,7 +62,7 @@ export class GoogleDriveHandler {
       const response = await this.drive.drives.get({
         driveId: args.driveId,
         useDomainAdminAccess: args.useDomainAdminAccess,
-        fields: 'id,name,colorRgb,backgroundImageFile,capabilities,createdTime,hidden,restrictions,themeId'
+        fields: 'id,name,themeId,colorRgb,backgroundImageFile,backgroundImageLink,capabilities,createdTime,hidden,restrictions'
       });
       return this.formatMCPResponse({ drive: response.data });
     } catch (error) {
@@ -67,17 +73,19 @@ export class GoogleDriveHandler {
     }
   }
 
-  async drive_drives_create(args: {
+  async drives_create(args: {
     requestId: string;
     name: string;
+    themeId?: string;
   }) {
     try {
       const response = await this.drive.drives.create({
         requestId: args.requestId,
         requestBody: {
-          name: args.name
+          name: args.name,
+          themeId: args.themeId
         },
-        fields: 'id,name,colorRgb,backgroundImageFile,capabilities,createdTime,hidden,restrictions,themeId'
+        fields: 'id,name,themeId,colorRgb,backgroundImageFile,backgroundImageLink,capabilities,createdTime,hidden,restrictions'
       });
       return this.formatMCPResponse({ drive: response.data });
     } catch (error) {
@@ -88,19 +96,14 @@ export class GoogleDriveHandler {
     }
   }
 
-  async drive_drives_update(args: {
+  async drives_update(args: {
     driveId: string;
     useDomainAdminAccess?: boolean;
     requestBody: {
       name?: string;
       themeId?: string;
       colorRgb?: string;
-      backgroundImageFile?: {
-        id?: string;
-        width?: number;
-        xCoordinate?: number;
-        yCoordinate?: number;
-      };
+      backgroundImageFile?: any;
       restrictions?: {
         adminManagedRestrictions?: boolean;
         copyRequiresWriterPermission?: boolean;
@@ -115,7 +118,7 @@ export class GoogleDriveHandler {
         driveId,
         useDomainAdminAccess,
         requestBody,
-        fields: 'id,name,colorRgb,backgroundImageFile,capabilities,createdTime,hidden,restrictions,themeId'
+        fields: 'id,name,themeId,colorRgb,backgroundImageFile,backgroundImageLink,capabilities,createdTime,hidden,restrictions'
       });
       return this.formatMCPResponse({ drive: response.data });
     } catch (error) {
@@ -126,9 +129,10 @@ export class GoogleDriveHandler {
     }
   }
 
-  async drive_drives_delete(args: {
+  async drives_delete(args: {
     driveId: string;
     useDomainAdminAccess?: boolean;
+    allowItemDeletion?: boolean;
   }) {
     try {
       // Note: The drives.delete method in the Google Drive API v3
@@ -136,6 +140,7 @@ export class GoogleDriveHandler {
       await this.drive.drives.delete({
         driveId: args.driveId,
         useDomainAdminAccess: args.useDomainAdminAccess,
+        allowItemDeletion: args.allowItemDeletion
       });
       // Return a success message as there's no data in the response
       return this.formatMCPResponse({ message: `Shared drive ${args.driveId} deleted successfully.` });
@@ -147,12 +152,13 @@ export class GoogleDriveHandler {
     }
   }
 
-  async drive_drives_hide(args: {
+  async drives_hide(args: {
     driveId: string;
   }) {
     try {
       const response = await this.drive.drives.hide({
         driveId: args.driveId,
+        fields: 'id,name,themeId,colorRgb,backgroundImageFile,backgroundImageLink,capabilities,createdTime,hidden,restrictions'
       });
       // The drives.hide method returns a Drive resource with hidden=true
       return this.formatMCPResponse({ drive: response.data });
@@ -164,12 +170,13 @@ export class GoogleDriveHandler {
     }
   }
 
-  async drive_drives_unhide(args: {
+  async drives_unhide(args: {
     driveId: string;
   }) {
     try {
       const response = await this.drive.drives.unhide({
         driveId: args.driveId,
+        fields: 'id,name,themeId,colorRgb,backgroundImageFile,backgroundImageLink,capabilities,createdTime,hidden,restrictions'
       });
       // The drives.unhide method returns a Drive resource with hidden=false
       return this.formatMCPResponse({ drive: response.data });
