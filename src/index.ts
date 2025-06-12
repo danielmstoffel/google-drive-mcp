@@ -1,163 +1,167 @@
 // src/index.ts
 
-// Adjusting imports based on SDK documentation
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'; // Corrected based on docs
-import { StreamableHTTPServerTransport, StreamableHTTPServerTransportOptions } from '@modelcontextprotocol/sdk/server/streamableHttp.js'; // For HTTP server
-// Removed Request, Response from types.js as tool handlers have specific return types
-// import { Request, Response } from '@modelcontextprotocol/sdk/types.js';
+// Imports for @modelcontextprotocol/sdk
+import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { StreamableHTTPServerTransport, StreamableHTTPServerTransportOptions } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 
-import { authenticate } from '@google-cloud/local-auth';
-import { google, Auth } from 'googleapis';
+// google-auth-library for OAuth2 client
+import { OAuth2Client } from 'google-auth-library';
+import { google, Auth } from 'googleapis'; // Auth namespace for type, google for service client
+
 import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
 import dotenv from 'dotenv';
-import * as http from 'http'; // Import Node.js http module
-import { z } from 'zod'; // Import Zod for schema definitions. ZodSchema is not directly used for raw shapes.
-import { randomUUID } from 'node:crypto'; // For sessionIdGenerator
+import * as http from 'http';
+import { z } from 'zod';
+import { randomUUID } from 'node:crypto';
 
-import { DriveHandler, initializeDriveHandler, getDriveHandler } from './handlers/drive-handler';
+// DriveHandler is now a placeholder, so these imports will not find actual implementations.
+// import { DriveHandler, initializeDriveHandler, getDriveHandler } from './handlers/drive-handler';
 
+// Load .env file first
 dotenv.config();
+
+// Attempt to load .env.personal or .env.work if they exist, overriding .env
+if (fs.existsSync('.env.personal')) {
+  dotenv.config({ path: '.env.personal', override: true });
+  console.log("Loaded .env.personal");
+} else if (fs.existsSync('.env.work')) {
+  dotenv.config({ path: '.env.work', override: true });
+  console.log("Loaded .env.work");
+}
+
 
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 const SCOPES = ['https://www.googleapis.com/auth/drive'];
 
-// Path to store credentials
-const CREDENTIALS_PATH = path.join(os.homedir(), '.credentials', 'google-drive-mcp.json');
+const CREDENTIALS_DIR = path.join(os.homedir(), '.credentials');
+const TOKEN_PATH = path.join(CREDENTIALS_DIR, 'google-drive-mcp-tokencache.json');
 
-let driveHandlerInstance: DriveHandler;
+if (!fs.existsSync(CREDENTIALS_DIR)) {
+  fs.mkdirSync(CREDENTIALS_DIR, { recursive: true });
+}
 
-/**
- * Load or request authorization to call APIs.
- */
-async function authorize(): Promise<Auth.OAuth2Client> {
-  let client: Auth.OAuth2Client;
-  try {
-    const credentialsFileContent = fs.readFileSync(CREDENTIALS_PATH, 'utf-8');
-    const credentials = JSON.parse(credentialsFileContent);
-    client = google.auth.fromJSON(credentials) as Auth.OAuth2Client;
-  } catch (err) {
-    // If credentials don't exist or are invalid, authenticate
-    console.log('Credentials not found or invalid, authenticating...');
-    client = await authenticate({
-      scopes: SCOPES,
-      keyfilePath: (process.env.GOOGLE_APPLICATION_CREDENTIALS as any), // Using 'as any' to bypass persistent type error
-    }) as Auth.OAuth2Client;
+// Module-level oauth2Client, to be initialized by authorize()
+let oauth2Client: OAuth2Client;
+// driveHandlerInstance will be null as DriveHandler is a placeholder
+let driveHandlerInstance: any = null;
 
-    // Save credentials
-    const credentialsDir = path.dirname(CREDENTIALS_PATH);
-    if (!fs.existsSync(credentialsDir)) {
-      fs.mkdirSync(credentialsDir, { recursive: true });
-    }
-    const payload = JSON.stringify({
-      type: 'authorized_user',
-      client_id: process.env.GOOGLE_CLIENT_ID, // Use env var directly
-      client_secret: process.env.GOOGLE_CLIENT_SECRET, // Use env var directly
-      refresh_token: client.credentials.refresh_token,
-    });
-    fs.writeFileSync(CREDENTIALS_PATH, payload);
-    console.log('Authentication successful, credentials saved to:', CREDENTIALS_PATH);
+
+async function authorize(): Promise<OAuth2Client> {
+  const clientId = process.env.GOOGLE_CLIENT_ID;
+  const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+  const redirectUri = process.env.GOOGLE_REDIRECT_URI || 'http://localhost:3000/oauth2callback';
+
+  if (!clientId || !clientSecret || !redirectUri) {
+    throw new Error('GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, and GOOGLE_REDIRECT_URI must be set in .env');
   }
 
-  // Check if the access token is expired and refresh it if necessary
-  const approximatelyOneMinuteInMs = 60 * 1000;
-  if (client.credentials.expiry_date && client.credentials.expiry_date <= (Date.now() + approximatelyOneMinuteInMs)) {
+  const client = new OAuth2Client(clientId, clientSecret, redirectUri);
+
+  if (fs.existsSync(TOKEN_PATH)) {
     try {
-      console.log('Access token is expired or nearing expiry, attempting refresh...');
+      const tokenFileContent = fs.readFileSync(TOKEN_PATH, 'utf-8');
+      const tokens = JSON.parse(tokenFileContent);
+      client.setCredentials(tokens);
+      console.log('Tokens loaded from file.');
+    } catch (e) {
+      console.warn('Could not load stored tokens:', e);
+    }
+  }
+
+  if (process.env.GOOGLE_REFRESH_TOKEN && !client.credentials.refresh_token) {
+    client.setCredentials({
+        refresh_token: process.env.GOOGLE_REFRESH_TOKEN
+    });
+    console.log("Using GOOGLE_REFRESH_TOKEN from environment.");
+  }
+
+  const approximatelyOneMinuteInMs = 60 * 1000;
+  if (client.credentials.refresh_token &&
+      (!client.credentials.access_token ||
+       (client.credentials.expiry_date && client.credentials.expiry_date <= (Date.now() + approximatelyOneMinuteInMs)))) {
+    console.log('Access token is expired or nearing expiry, attempting refresh...');
+    try {
       const { credentials } = await client.refreshAccessToken();
       client.setCredentials(credentials);
-      console.log('Access token refreshed.');
-       // Update saved credentials with new token info
-       const updatedPayload = JSON.stringify({
-        type: 'authorized_user',
-        client_id: process.env.GOOGLE_CLIENT_ID, // Use env var directly
-        client_secret: process.env.GOOGLE_CLIENT_SECRET, // Use env var directly
-        refresh_token: client.credentials.refresh_token, // This should persist
-        access_token: client.credentials.access_token,
-        expiry_date: client.credentials.expiry_date,
-      });
-      fs.writeFileSync(CREDENTIALS_PATH, updatedPayload);
-
+      fs.writeFileSync(TOKEN_PATH, JSON.stringify(client.credentials));
+      console.log('Token refreshed and saved.');
     } catch (refreshError) {
-      console.error('Error refreshing access token:', refreshError);
-      // If refresh fails, might need to re-authenticate
-      // For this example, we'll throw, but a real app might try re-auth flow
-      throw new Error('Failed to refresh access token. Please try re-authenticating.');
+      console.error('Error refreshing access token. Manual re-authentication or a valid GOOGLE_REFRESH_TOKEN may be required.', refreshError);
+      if (!client.credentials.access_token) {
+          throw new Error('Failed to refresh access token and no existing access token is valid.');
+      }
+      console.warn('Proceeding with potentially expired or unrefreshed token.');
     }
+  } else if (!client.credentials.access_token && !client.credentials.refresh_token) {
+    console.error('No refresh token available and no access token. Cannot proceed without authentication.');
+    throw new Error('No refresh token available. Please provide GOOGLE_REFRESH_TOKEN in your .env file or ensure ' + TOKEN_PATH + ' contains a valid refresh_token.');
   }
 
-
+  oauth2Client = client;
   return client;
 }
 
-// Removed old toolDispatcher, tools will be registered directly with McpServer
-
 async function main() {
   try {
-    console.log('Attempting to authorize Google Drive API...');
-    const authClient = await authorize();
-    console.log('Authorization successful.');
+    console.log('Attempting to authorize Google Drive API (using new placeholder logic)...');
+    const authClientInstance = await authorize();
 
-    initializeDriveHandler(authClient); // Initialize the shared handler instance
-    driveHandlerInstance = getDriveHandler(); // Get the initialized instance
+    // initializeDriveHandler(authClientInstance); // Commented out as DriveHandler is a placeholder
+    // driveHandlerInstance = getDriveHandler();  // Commented out
+    // driveHandlerInstance is already null
 
-    console.log('DriveHandler initialized.');
+    console.log('DriveHandler initialization skipped as it is a placeholder.');
 
+    const serverName = process.env.npm_package_name || 'google-drive-mcp';
+    const serverVersion = process.env.npm_package_version || '0.0.1';
     const mcpServer = new McpServer({
-      name: 'google-drive-mcp',
-      version: '1.0.0',
-      // No initial capabilities needed here, will be defined by tools
+      name: serverName,
+      version: serverVersion,
     });
 
-    // Register tools from DriveHandler
-    const toolNames = Object.getOwnPropertyNames(DriveHandler.prototype).filter(
-      (methodName) => methodName.startsWith('drive_') && typeof (driveHandlerInstance as any)[methodName] === 'function'
-    );
+    // Since DriveHandler is a placeholder and driveHandlerInstance is null,
+    // toolNames will be empty.
+    const toolNames: string[] = [];
 
-    for (const toolName of toolNames) {
-      // Using an empty object {} as the ZodRawShape for tools that accept any object.
-      // The handler will receive the args, and internal validation within DriveHandler methods is assumed.
-      const genericToolSchemaShape = {};
-
-      mcpServer.tool(
-        toolName,
-        `Handles ${toolName} operations.`,
-        genericToolSchemaShape, // Use the empty object as ZodRawShape
-        async (args: Record<string, any>) => {
-          try {
-            const result = await (driveHandlerInstance as any)[toolName](args);
-            // Assuming handlers return { success: boolean, ...data } or { success: false, error: string }
-            // Adapt this to MCP's expected { content: ContentPart[], isError?: boolean }
-            if (result.success) {
-              const { success, ...data } = result; // remove success field
-              // Return JSON data as a string within a "text" content part, as per SDK examples
-              return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
-            } else {
-              return { content: [{ type: 'text', text: `Error: ${result.error}` }], isError: true };
+    if (toolNames.length > 0) {
+      for (const toolName of toolNames) {
+        const genericToolSchemaShape = {};
+        mcpServer.tool(
+          toolName,
+          `Handles ${toolName} operations.`,
+          genericToolSchemaShape,
+          async (args: Record<string, any>) => {
+            try {
+              const result = await (driveHandlerInstance as any)[toolName](args);
+              if (result.success) {
+                const { success, ...data } = result;
+                return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
+              } else {
+                return { content: [{ type: 'text', text: `Error: ${result.error}` }], isError: true };
+              }
+            } catch (error: any) {
+              console.error(`Error executing tool ${toolName} via McpServer:`, error);
+              return { content: [{ type: 'text', text: `Internal server error: ${error.message}` }], isError: true };
             }
-          } catch (error: any) {
-            console.error(`Error executing tool ${toolName} via McpServer:`, error);
-            return { content: [{ type: 'text', text: `Internal server error: ${error.message}` }], isError: true };
           }
-        }
-      );
-      console.log(`Registered tool: ${toolName}`);
+        );
+        console.log(`Registered tool: ${toolName}`);
+      }
+    } else {
+      console.log("No DriveHandler tools to register due to placeholder.");
     }
 
     const httpServer = http.createServer();
-
     const mcpPath = '/mcp';
+
     const transport = new StreamableHTTPServerTransport({
-      sessionIdGenerator: randomUUID, // Added required sessionIdGenerator
-      // requestBodyParser and responseBodyParser can be added if custom parsing is needed
+        sessionIdGenerator: randomUUID,
     });
 
-    // HTTP server request handling
     httpServer.on('request', async (req, res) => {
       if (req.url && req.url.startsWith(mcpPath)) {
-        // For MCP requests, delegate to the transport's handler.
-        // We need to parse the body for POST/PUT requests as MCP expects structured data.
         let body: any;
         if (req.method === 'POST' || req.method === 'PUT') {
           try {
@@ -174,11 +178,12 @@ async function main() {
             return;
           }
         }
-        // The transport's `handleRequest` method is what processes MCP communication.
-        // This was missing in previous attempts.
-        await transport.handleRequest(req, res, body);
+        if (transport.handleRequest) {
+             await transport.handleRequest(req, res, body);
+        } else {
+            console.warn("transport.handleRequest is not available; request might not be handled if not using a framework integration.")
+        }
       } else {
-        // Handle other routes or return 404 for non-MCP paths
         if (!res.headersSent) {
           res.writeHead(404, { 'Content-Type': 'text/plain' });
           res.end('Not Found');
@@ -186,10 +191,11 @@ async function main() {
       }
     });
 
-    await mcpServer.connect(transport); // Connect McpServer to the transport
+    await mcpServer.connect(transport);
 
     httpServer.listen(PORT, () => {
-      console.log(`MCP Server for Google Drive started on port ${PORT}, endpoint /mcp`);
+      console.log(`MCP Server for Google Drive started on port ${PORT}, endpoint ${mcpPath}`);
+      console.log(`MCP Server name: ${serverName}, version: ${serverVersion}`);
     });
 
   } catch (error) {
@@ -198,4 +204,9 @@ async function main() {
   }
 }
 
-main();
+main().catch(error => {
+  console.error('Unhandled error in main:', error);
+  process.exit(1);
+});
+
+export { oauth2Client };

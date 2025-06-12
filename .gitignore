@@ -1,15 +1,11 @@
-# Dependencies
 node_modules/
-
-# Build output
 dist/
-
-# Environment variables
 .env
-
-# TypeScript cache
-*.tsbuildinfo
-
-# OS generated files
+.env.local
+.env.personal
+.env.work
+*.log
 .DS_Store
-Thumbs.db
+coverage/
+.vscode/
+.idea/
