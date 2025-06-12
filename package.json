@@ -1,0 +1,15 @@
+{
+  "name": "@danielmstoffel/google-drive-mcp",
+  "version": "1.0.0",
+  "description": "Google Drive MCP server for Claude Desktop",
+  "main": "dist/index.js",
+  "files": ["dist", "README.md"],
+  "keywords": ["mcp", "claude", "google-drive", "ai"],
+  "scripts": {
+    "build": "tsc",
+    "test": "jest",
+    "verify-tools": "node scripts/verify-tools.js",
+    "check-implementation": "node scripts/check-implementation.js",
+    "validate-config": "node scripts/validate-config.js"
+  }
+}
